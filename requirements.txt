@@ -1,0 +1,12 @@
+pandas
+scipy
+numpy
+plotly
+networkx
+gensim
+sklearn
+url_normalize
+pyarrow
+statsmodels
+tqdm
+tabulate
