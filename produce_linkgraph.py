@@ -1,12 +1,10 @@
 """
-Module for creating linkgraph from a stream of records.
+Script to extract linkgraphs from the textual contents of Netarkivet.
 """
 
 from typing import Iterable, Optional
-import sys
 
 import pandas as pd
-from tabulate import tabulate
 
 import utils.linkgraph as lg
 import utils.stream as st
@@ -14,24 +12,49 @@ import utils.stream as st
 DEFAULT_CHUNK_SIZE = 10_000
 
 
-def memory_info(data: pd.DataFrame) -> str:
+def dfs_to_linkgraph(
+    df_stream: Iterable[pd.DataFrame],
+    save_path: Optional[str] = None,
+) -> pd.DataFrame:
     """
-    Displays some tabulated information about memory usage of a DataFrame.
+    Turns a stream of record data frames into a linkgraph.
+
+    Parameters
+    ----------
+    records_stream: iterable of DataFrame
+        Stream of record data frames from netarkivet,
+        containing a text and domain_key field.
+    save_path: str or None, default None
+        Path to save the result after each iteration.
+        If not specified, saving won't happen.
+
+    Returns
+    -------
+    linkgraph: DataFrame
+
+    Notes
+    -----
+    The linkgraph always gets saved as a .feather file.
+    Don't forget this when specifying file name.
+    Remember to install pyarrow as an optional dependency.
     """
-    mem_use = (
-        data
-        .memory_usage()
-        .reset_index()
-        .rename(columns={"index": "column", 0: "memory_usage"})
-    )
-    return tabulate(mem_use, headers="keys", tablefmt="psql")
+    linkgraph = pd.DataFrame(columns=["source", "target", "connections"])
+    # NOTES:
+    # Since this can be an embarassingly parallel problem
+    # it might make sense to parallelize or at least asynchronize it
+    # if performance is not satisfactory
+    for df in df_stream:
+        current = lg.create_linkgraph(df)
+        linkgraph = lg.add(linkgraph, current)
+        if save_path is not None:
+            linkgraph.to_feather(save_path)
+    return linkgraph
 
 
 def records_to_linkgraph(
     record_stream: Iterable[dict],
     save_path: Optional[str] = None,
     chunk_size: int = DEFAULT_CHUNK_SIZE,
-    verbose: bool = False,
 ) -> pd.DataFrame:
     """
     Turns any stream of records into a linkgraph by chunking.
@@ -59,51 +82,32 @@ def records_to_linkgraph(
     Don't forget this when specifying file name.
     Remember to install pyarrow as an optional dependency.
     """
+    # Chunking records
     record_chunks = st.chunk(record_stream, chunk_size)
-    linkgraph = pd.DataFrame(columns=["source", "target", "connections"])
-    # NOTES:
-    # Since this can be an embarassingly parallel problem
-    # it might make sense to parallelize or at least asynchronize it
-    # if performance is not satisfactory
-    for i, chunk in enumerate(record_chunks):
-        chunk_df = pd.DataFrame.from_records(chunk)
-        # NOTES:
-        # This is nice and concise, but I'll have to test
-        # whether it would make sense to extract, expand,
-        # and then add it to the previous result.
-        # There is possibly a performance benefit to only collapsing once,
-        # But I will have to do some profiling.
-        current = lg.create_linkgraph(chunk_df)
-        linkgraph = lg.add(linkgraph, current)
-        if save_path is not None:
-            linkgraph.to_feather(save_path)
-        if verbose:
-            pass
-            # print("\r", end="")
-            # summary = f"Chunk {i} done:\n" + memory_info(linkgraph)
-            # print(summary, end="")
-            # for _ in range(summary.count("\n")):
-            #     sys.stdout.write("\x1b[1A\x1b[2K")
-    return linkgraph
+    # Turning record chunks into DataFrames
+    record_dfs = map(pd.DataFrame.from_records, record_chunks)
+    # Running the other function :))
+    return dfs_to_linkgraph(record_dfs, save_path)
 
 
-DATA_PATH = "/work/netarkivet-cleaned/"
+DATA_PATH = "/work/netarchive/"
 
 
 def main() -> None:
     """
-    Produces a linkgraph for 2006 by default.
-    Saves results to '/work/linkgraph_cleaned/2006/new_edges.feather'
+    Produces a linkgraph for each year.
+    Results are saved at /work/linkgraph_cleaned/<year>/extracted_edges.feather
 
     NOTE: I might write a CLI at one point, that would probs be more convenient.
     """
     print("Starting linkgraph construction")
-    records = st.stream_year(DATA_PATH, 2006)
-    records_to_linkgraph(
-        records,
-        save_path="/work/linkgraph_cleaned/2006/new_edges.feather",
-        verbose=True,
-    )
+    for year in range(2006, 2016 + 1):
+        print(f"Processing year: {year}")
+        record_dfs = st.stream_year_parquet(DATA_PATH, str(year))
+        dfs_to_linkgraph(
+            record_dfs,
+            save_path=f"/work/linkgraph_cleaned/{year}/new_edges.feather",
+        )
     print("👌DONE👌")
 
 

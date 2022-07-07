@@ -1,7 +1,8 @@
 """
 Module containing utility functions for streaming data
 """
-
+import functools
+import glob
 import json
 import os
 import random
@@ -76,7 +77,7 @@ def reusable(gen_func: Callable) -> Callable:
     _multigen: Callable
         Sneakily created iterator class wrapping the generator function
     """
-
+    @functools.wraps(gen_func, updated=())
     class _multigen:
         def __init__(self, *args, limit=None, **kwargs):
             self.__args = args
@@ -197,45 +198,6 @@ def stream_records_from_file(file_path: str) -> Iterable[dict]:
             if record_okay:
                 yield record
 
-
-I = TypeVar("I")
-
-BAR_LENGTH = 100
-N_DECIMALS = 1
-FILL_CHARACTER = "█"
-
-
-@reusable
-def progress_bar_stream(items: List[I]) -> Iterable[I]:
-    """
-    Wraps list in an iterable that shows a progress bar and the current element.
-    Parameters
-    ----------
-    items: list of U
-        Items to iterate over (of type U)
-    Yields
-    ----------
-    item: U
-        Current item under processing
-    """
-    from IPython.display import clear_output
-
-    total = len(items)
-    for iteration, item in enumerate(items):
-        percent = ("{0:." + str(N_DECIMALS) + "f}").format(
-            100 * (iteration / float(total))
-        )
-        filled_length = int(BAR_LENGTH * iteration // total)
-        progress_bar = FILL_CHARACTER * filled_length + "-" * (
-            BAR_LENGTH - filled_length
-        )
-        clear_output(wait=True)
-        print(
-            f"Progress: |{progress_bar}| {percent}% \n Current item processed: {item}\n"
-        )
-        yield item
-
-
 @reusable
 def stream_year(
     data_path: str,
@@ -244,6 +206,7 @@ def stream_year(
 ) -> Iterable[dict]:
     """
     Streams all records from a given year.
+    
     Parameters
     ----------
     data_path: str
@@ -265,12 +228,43 @@ def stream_year(
                 records = stream_records_from_file(os.path.join(root, file))
                 for record in records:
                     yield record
-
-
+@reusable
+def stream_year_parquet(
+    data_path: str,
+    year: str
+) -> Iterable[pd.DataFrame]:
+    """
+    Streams all parquet files from a given year in the form
+    of DataFrames.
+    
+    Parameters
+    ----------
+    data_path: str
+        The path where the files live.
+    year: str
+        The year from which the files should be streamed.
+    
+    Yields
+    ------
+    DataFrame
+    
+    Note
+    ----
+    This is highly unadvisable!
+    The cleaned, deduplicated texts are in jsonl.
+    I only wrote this function to be able to create linkgraphs
+    without the need for json parsing, which is the bottleneck.
+    """
+    year_path = os.path.join(data_path, f"{year}_textcorpus.parquet")
+    files = glob.glob(os.path.join(year_path, "*.snappy.parquet"))
+    for file in files:
+        yield pd.read_parquet(file).rename(columns={"content": "text"})
+                    
 @reusable
 def to_text_stream(records: Iterable[dict]) -> Iterable[str]:
     """
     Turns a stream of records to a stream of texts
+    
     Parameters
     ----------
     records: iterable of dict

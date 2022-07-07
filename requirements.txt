@@ -5,8 +5,6 @@ plotly
 networkx
 gensim
 sklearn
-url_normalize
 pyarrow
 statsmodels
 tqdm
-tabulate
