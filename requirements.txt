@@ -3,7 +3,6 @@ scipy
 numpy
 plotly
 networkx
-gensim
 sklearn
 pyarrow
 statsmodels

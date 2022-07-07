@@ -1,3 +1,4 @@
+"""Utility functions for building network graphs in Plotly"""
 from typing import Any, Dict, List, Literal, Optional, Tuple, TypeVar, Union
 
 import networkx as nx
@@ -87,7 +88,7 @@ def create_annotations(
                 bordercolor="rgba(0,0,0,0.5)",
                 font={
                     "family": "Helvetica",
-                    "size": size[i],
+                    "size": size[i],  # type: ignore
                     "color": "black",
                 },
             )
@@ -161,7 +162,7 @@ def create_node_trace(
         },
         customdata=indices,
     )
-    return node_trace
+    return node_trace  # type: ignore
 
 
 MAX_WEIGHT = 5
@@ -221,7 +222,7 @@ def create_edge_trace(
         )
         for i in indices
     ]
-    return edge_trace
+    return edge_trace  # type: ignore
 
 
 def _network(
@@ -233,7 +234,7 @@ def _network(
     node_color: Union[np.ndarray, str] = "red",
     edge_weight: Union[np.ndarray, float] = 0.5,
     edge_color: Union[np.ndarray, str] = "#888",
-    colorbar_title: str = "Total antal forbindelser",
+    colorbar_title: str = "",
 ):
     x, y = node_x, node_y
     # Creating node trace for the network
@@ -302,9 +303,15 @@ def plotly_network(
         different colors will be assigned to edges based on a color scheme.
 
     Returns
-    ----------
+    -------
     figure: plotly figure
         Network graph drawn with plotly
+
+    Note
+    ----
+    I will probably deprecate this function as soon as possible
+    in favor of px_network.
+    This is literally the worst of all worlds.
     """
     # Creating NetworkX graph and obtaining node positions
     nx_graph = nx.Graph(affinity_matrix)
@@ -316,9 +323,22 @@ def plotly_network(
     # Deleting references to variables, that way it won't be in locals()
     del nx_graph
     del affinity_matrix
-    return _network(**locals())
+    # God forgive me for writing these few lines,
+    # I swear they also do this in Plotly's code 😩
+    return _network(
+        node_x,
+        node_y,
+        edges,
+        node_labels,
+        node_size,
+        node_color,
+        edge_weight,
+        edge_color,
+        colorbar_title="Total antal forbindelser",
+    )
 
 
+# Again a few lines so that the type annotations don't become incredibly long
 T = TypeVar("T")
 Real = Union[float, int]
 Weight = Dict[Literal["weight"], Real]
@@ -343,12 +363,12 @@ def _networkx_edges(
             {"weight": weight} for weight in edges_df[weight_column]
         ]
         edges = zip(target, source, weights)
-    return list(edges)
+    return list(edges)  # type: ignore
 
 
 def px_network(
     edges: pd.DataFrame,
-    nodes: Union[pd.DataFrame] = None,
+    nodes: Optional[pd.DataFrame] = None,
     *,
     source: Optional[str] = None,
     target: Optional[str] = None,
@@ -412,7 +432,7 @@ def px_network(
         source, target, *rest = edges.columns
         if rest and (weight is None):
             weight = rest[0]
-    edgelist = _networkx_edges(edges, source, target, weight)
+    edgelist = _networkx_edges(edges, source, target, weight)  # type: ignore
     nx_graph = nx.Graph(edgelist)
     node_labels = list(nx_graph)
     node_color = "red"
@@ -431,10 +451,7 @@ def px_network(
             affinity = affinity / np.max(affinity)
             edge_color = [f"rgba(0,0,0,{opacity})" for opacity in affinity]
     mapping = {label: index for index, label in enumerate(node_labels)}
-    _edges = np.array(
-        nx.relabel_nodes(nx_graph, mapping)
-        .edges()
-    )
+    _edges = np.array(nx.relabel_nodes(nx_graph, mapping).edges())
     if nodes is not None:
         if names is not None:
             node_labels = nodes[names]
@@ -443,14 +460,19 @@ def px_network(
         if size is not None:
             node_size = nodes[size]
     colorbar_title = names or ""
+    # I'm solely doing this madness to satisfy the type checker.
+    if isinstance(node_x, pd.Series):
+        node_x = node_x.to_numpy()
+    if isinstance(node_y, pd.Series):
+        node_y = node_y.to_numpy()
     return _network(
         node_x=node_x,
         node_y=node_y,
         edges=_edges,
-        node_labels=node_labels,
-        node_size=node_size,
-        node_color=node_color,
+        node_labels=node_labels,  # type: ignore
+        node_size=node_size,  # type: ignore
+        node_color=node_color,  # type: ignore
         edge_weight=2.5,
-        edge_color=edge_color,
+        edge_color=edge_color,  # type: ignore
         colorbar_title=colorbar_title,
     )

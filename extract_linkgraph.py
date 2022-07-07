@@ -106,7 +106,7 @@ def main() -> None:
         record_dfs = st.stream_year_parquet(DATA_PATH, str(year))
         dfs_to_linkgraph(
             record_dfs,
-            save_path=f"/work/linkgraph_cleaned/{year}/new_edges.feather",
+            save_path=f"/work/linkgraph_cleaned/{year}/extracted_edges.feather",
         )
     print("👌DONE👌")
 

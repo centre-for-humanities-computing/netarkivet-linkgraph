@@ -7,12 +7,10 @@ import json
 import os
 import random
 import re
-from itertools import islice, zip_longest
+from itertools import islice
 from typing import Callable, Iterable, List, Optional, Tuple, TypeVar
 
 import pandas as pd
-from gensim.models.doc2vec import TaggedDocument
-from tqdm import tqdm
 
 
 def stream_edges(
@@ -77,6 +75,7 @@ def reusable(gen_func: Callable) -> Callable:
     _multigen: Callable
         Sneakily created iterator class wrapping the generator function
     """
+
     @functools.wraps(gen_func, updated=())
     class _multigen:
         def __init__(self, *args, limit=None, **kwargs):
@@ -198,15 +197,12 @@ def stream_records_from_file(file_path: str) -> Iterable[dict]:
             if record_okay:
                 yield record
 
+
 @reusable
-def stream_year(
-    data_path: str,
-    year: str,
-    verbose: bool = True
-) -> Iterable[dict]:
+def stream_year(data_path: str, year: str) -> Iterable[dict]:
     """
     Streams all records from a given year.
-    
+
     Parameters
     ----------
     data_path: str
@@ -220,34 +216,31 @@ def stream_year(
     """
     for root, _, files in os.walk(os.path.join(data_path, f"{year}")):
         # Go through all files in the year directory
-        if verbose:
-            files = tqdm(files, desc=f"Processing year: {year}")
-        for file in files: #progress_bar_stream(files):
+        for file in files:
             # If it's a jsonl file, stream all records from it
             if file.endswith(".jsonl"):
                 records = stream_records_from_file(os.path.join(root, file))
                 for record in records:
                     yield record
+
+
 @reusable
-def stream_year_parquet(
-    data_path: str,
-    year: str
-) -> Iterable[pd.DataFrame]:
+def stream_year_parquet(data_path: str, year: str) -> Iterable[pd.DataFrame]:
     """
     Streams all parquet files from a given year in the form
     of DataFrames.
-    
+
     Parameters
     ----------
     data_path: str
         The path where the files live.
     year: str
         The year from which the files should be streamed.
-    
+
     Yields
     ------
     DataFrame
-    
+
     Note
     ----
     This is highly unadvisable!
@@ -259,63 +252,19 @@ def stream_year_parquet(
     files = glob.glob(os.path.join(year_path, "*.snappy.parquet"))
     for file in files:
         yield pd.read_parquet(file).rename(columns={"content": "text"})
-                    
-@reusable
-def to_text_stream(records: Iterable[dict]) -> Iterable[str]:
-    """
-    Turns a stream of records to a stream of texts
-    
-    Parameters
-    ----------
-    records: iterable of dict
-        Stream of records you want to turn into texts
-    Yields
-    ----------
-    text: str
-        Texts extracted from the records
-    """
-    for record in records:
-        yield record["text"]
 
-
-@reusable
-def stream_all_records(data_path: str) -> Iterable[dict]:
-    """
-    Generator yielding all records from the dataset.
-    Parameters
-    ----------
-    data_path: str
-        Specifies where our data lives, where to get file contents from.
-    Yields
-    ----------
-    record: dict
-        All records
-    """
-    # List of all years
-    years = get_years(data_path=data_path)
-    # Collects streams of all years into a list
-    year_streams = [stream_year(data_path, year) for year in years]
-    # Streams records from all years at the same time, so that the data is more shuffled
-    # We use the zip_longest function from itertools, so that we iterate as
-    # long as the longest iterable is not exhausted
-    # Once a shorter iterable is exhausted, we will get None values.
-    for records in zip_longest(*year_streams, fillvalue=None):
-        for record in records:
-            # If the record is not from an exhausted stream, we yield it
-            if record is not None:
-                yield record
 
 def filter_contains(records: Iterable[dict], keyword: str) -> Iterable[dict]:
     """
     Filters a stream of records based on whether they contain the given keyword.
-    
+
     Parameters
     ----------
     records: iterable of dict
         Stream of records to filter
     keyword: str
         Keyword, the records have to contain
-    
+
     Yields
     ------
     record: dict

@@ -3,21 +3,123 @@ Module containing graph related classes and functions
 """
 from __future__ import annotations
 
-import os
-import pickle
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, Union
 
-import networkx as nx
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import scipy.sparse as spr
-from sklearn.preprocessing import normalize
 
-from utils.construction import (create_distance_matrix, create_mappings,
-                                undirected_edges)
 from utils.display import plotly_network
+
+
+def create_mappings(edges: pd.DataFrame) -> Tuple[Dict[str, int], Dict[int, str]]:
+    """
+    Creates mapping from node index to key and vice versa, based on the edges of the graph.
+
+    Parameters
+    ----------
+    edges: DataFrame
+        Data frame containing edges of the graph
+
+    Returns
+    -------
+    key_to_index: dict of str to int
+        Mapping from node keys to indices
+    index_to_key: dict of int to str
+        Mapping from node indices to keys
+    """
+    domains = pd.concat((edges.source, edges.target), ignore_index=True).unique()
+    key_to_index = {domain: index for index, domain in enumerate(domains)}
+    index_to_key = {index: domain for index, domain in enumerate(domains)}
+    return key_to_index, index_to_key  # type: ignore
+
+
+def create_distance_matrix(
+    edges: pd.DataFrame,
+    key_to_index: Dict[str, int],
+    directional: bool = False,
+    affinity_column: str = "connections",
+) -> spr.csr_matrix:
+    """
+    Creates distance matrix of graph based on the edges.
+
+    Parameters
+    ----------
+    edges: DataFrame
+        Data frame containing edges of the graph
+    key_to_index: dict of str to int
+        Mapping from node keys to indices
+    directional: bool, default False
+        Flag indicating whether the distance matrix should be directional
+    affinity_column: str, default "connections"
+        Column in the edges data frame indicating affinity of elements
+
+    Returns
+    -------
+    delta: sparse matrix of shape (n_nodes, n_nodes)
+        Sparse distance matrix of the graph
+    """
+    # Mapping node names to node indices
+    edges = edges.assign(
+        target=edges.target.map(key_to_index), source=edges.source.map(key_to_index)
+    )
+    if directional:
+        connections = edges[affinity_column]
+        source = edges.source
+        target = edges.target
+    else:
+        connections = edges[affinity_column].tolist() * 2
+        source = pd.concat([edges.source, edges.target], ignore_index=True)
+        target = pd.concat([edges.target, edges.source], ignore_index=True)
+    # Creating a coo style sparse matrix for storing weights
+    delta = spr.csr_matrix(
+        (connections, (source, target)), shape=(len(key_to_index), len(key_to_index))
+    )
+    return delta
+
+
+def undirected_edges(
+    edges: pd.DataFrame,
+    key_to_index: Optional[Dict[str, int]] = None,
+    index_to_key: Optional[Dict[int, str]] = None,
+) -> pd.DataFrame:
+    """
+    Converts edges to undirected edges.
+
+    Parameters
+    ----------
+    edges: DataFrame
+        Data frame containing edges of the graph
+    key_to_index: dict of str to int, or None, default None
+        Mapping from node keys to indices
+        If not supplied, mappings are created.
+    index_to_key: dict of int to str, or None, default None
+        Mapping from node indices to keys
+
+    Returns
+    -------
+    edges: DataFrame
+        Data frame containing undirected edges
+    """
+    if key_to_index is None:
+        key_to_index, index_to_key = create_mappings(edges)
+    # Convert columns to indices instead of node names
+    edges = edges.assign(
+        target=edges.target.map(key_to_index), source=edges.source.map(key_to_index)
+    )
+    # Undirect graph by assigning the lower index to be the source
+    edges = edges.assign(
+        source=np.minimum(edges.target, edges.source),
+        target=np.maximum(edges.target, edges.source),
+    )
+    # Adding together the weights
+    edges = edges.groupby(["source", "target"]).sum().reset_index()
+    # Remapping nodes to names
+    return edges.assign(
+        target=edges.target.map(index_to_key), source=edges.source.map(index_to_key)
+    )
 
 
 @dataclass
@@ -41,13 +143,13 @@ class Graph:
     key_to_index: Dict[str, int]
     index_to_key: Dict[int, str]
 
-    #def __post_init__(self):
-        #self.affinity = normalize(self.affinity, norm="max")
-        
+    # def __post_init__(self):
+    # self.affinity = normalize(self.affinity, norm="max")
+
     def remove_loops(self) -> Graph:
         """
         Removes all loops from the graph, returns new graph.
-        
+
         Notes
         -----
         This operation requires the affinity matrix to be turned
@@ -55,15 +157,16 @@ class Graph:
         If the affinity matrix would be too large in a dense format,
         this operation might fail.
         """
-        affinity = self.affinity.todense()
+        if spr.issparse(self.affinity):
+            affinity = self.affinity.toarray()  # type: ignore
+        else:
+            affinity = self.affinity
         np.fill_diagonal(affinity, val=0)
         return type(self)(affinity, self.key_to_index, self.index_to_key)
-        
+
     @classmethod
     def from_edges(
-        cls,
-        edges: pd.DataFrame,
-        affinity_column: str = "connections"
+        cls, edges: pd.DataFrame, affinity_column: str = "connections"
     ) -> Graph:
         """
         Constructs a graph from a DataFrame of edges.
@@ -74,7 +177,7 @@ class Graph:
             Data frame containing all edges.
         affinity_column: str, default "connections"
             Column in the edges data frame indicating affinity of elements
-    
+
         Returns
         -------
         graph: Graph
@@ -88,7 +191,9 @@ class Graph:
         """
         key_to_index, index_to_key = create_mappings(edges)
         edges = undirected_edges(edges, key_to_index, index_to_key)
-        affinity = create_distance_matrix(edges, key_to_index, directional=False, affinity_column=affinity_column)
+        affinity = create_distance_matrix(
+            edges, key_to_index, directional=False, affinity_column=affinity_column
+        )
         return cls(affinity, key_to_index, index_to_key)
 
     def invert(self) -> Graph:
@@ -108,7 +213,7 @@ class Graph:
         this operation might fail.
         """
         if spr.issparse(self.affinity):
-            affinity = self.affinity.toarray()
+            affinity = self.affinity.toarray()  # type: ignore
         else:
             affinity = self.affinity
         return type(self)(1 - affinity, self.key_to_index, self.index_to_key)
@@ -117,7 +222,7 @@ class Graph:
         row, column = index
         if isinstance(row, str) and isinstance(column, str):
             row, column = self.key_to_index[row], self.key_to_index[column]
-        return self.affinity[row, column]
+        return self.affinity[row, column]  # type: ignore
 
     @property
     def _n_connections(self) -> np.ndarray:
@@ -140,7 +245,7 @@ class Graph:
         connections: dict of str to int
             A mapping of each node to its number of connections/sum of weights.
         """
-        connections = self._n_connections()
+        connections = self._n_connections
         return {self.index_to_key[i]: n for i, n in enumerate(connections)}
 
     @property
@@ -187,10 +292,12 @@ class Graph:
             source, target = pd.Series(source), pd.Series(target)
             source = source.map(self.key_to_index).to_numpy()
             target = target.map(self.key_to_index).to_numpy()
-            edges = np.stack([source, target], axis=1)
+            _edges = np.stack([source, target], axis=1)  # type: ignore
+        else:
+            _edges = None
         return plotly_network(
             self.affinity,
-            edges=edges,
+            edges=_edges,
             node_labels=self.node_names,
             node_size=node_size,
             node_color=node_color,
