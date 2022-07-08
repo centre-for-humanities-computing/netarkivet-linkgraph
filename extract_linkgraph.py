@@ -5,12 +5,12 @@ Script to extract linkgraphs from the textual contents of Netarkivet.
 from typing import Iterable, Optional
 
 import pandas as pd
+import argparse
 
 import utils.linkgraph as lg
 import utils.stream as st
 
 DEFAULT_CHUNK_SIZE = 10_000
-
 
 def dfs_to_linkgraph(
     df_stream: Iterable[pd.DataFrame],
@@ -89,19 +89,29 @@ def records_to_linkgraph(
     # Running the other function :))
     return dfs_to_linkgraph(record_dfs, save_path)
 
+def create_parser() -> argparse.ArgumentParser:
+    """Creates parser for the main function"""
+    parser = argparse.ArgumentParser(description="Produce linkgraph for the given years")
+    parser.add_argument(
+        "years",
+        type=str,
+        nargs="+",
+        help="List of years that should be processed by the script"
+    )
+    return parser
 
 DATA_PATH = "/work/netarkivet-cleaned/"
 
 
 def main() -> None:
     """
-    Produces a linkgraph for each year.
+    Produces a linkgraph for each year supplied as a command line argument.
     Results are saved at /work/linkgraph_cleaned/<year>/extracted_edges.feather
-
-    NOTE: I might write a CLI at one point, that would probs be more convenient.
     """
-    print("Starting linkgraph construction")
-    for year in range(2006, 2016 + 1):
+    parser = create_parser()
+    args = parser.parse_args()
+    print("Starting linkgraph construction:")
+    for year in args.years:
         records: Iterable[dict] = st.stream_year(DATA_PATH, str(year), verbose=True)
         records_to_linkgraph(
             records,
