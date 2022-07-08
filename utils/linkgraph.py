@@ -4,7 +4,7 @@ Module with useful functions for creating an manipulating link graphs.
 
 import pandas as pd
 
-from utils.url import URL_REGEX, parse_domain, normalize_domains, strip_braces
+from utils.url import URL_REGEX, normalize_domains, parse_domain, strip_braces
 
 # Creating a link graph has three ditinct steps,
 # that I decided to separate for performance considerations.
@@ -76,12 +76,10 @@ def expand(links: pd.DataFrame) -> pd.DataFrame:
     """
     links = links.dropna()
     # Normalizing all domain_keys just to be sure that there is no discrepency
-    links = links.assign(
-        domain_key=normalize_domains(links.domain_key)
-    )
+    links = links.assign(domain_key=normalize_domains(links.domain_key))
     # Exploding each link to its own row
     links = links.explode("links").dropna()
-    #Removing braces
+    # Removing braces
     links = links.assign(links=strip_braces(links.links))
     # Parsing domains
     links = links.assign(

@@ -13,12 +13,11 @@ from gensim.models import Doc2Vec
 from sklearn.metrics import pairwise_distances
 
 from utils.graph import Graph, undirected_edges
+from utils.linkgraph import create_linkgraph
 from utils.stats import centroid, spread
 from utils.stream import filter_contains, stream_year
-from utils.linkgraph import create_linkgraph
 from utils.text import normalized_document
 from utils.url import normalize_domains
-
 
 # Path to Netarkivet
 DATA_PATH = "/work/netarkivet-cleaned/"
@@ -118,11 +117,13 @@ def create_semantic_graph(semantic_summary: pd.DataFrame) -> Graph:
     """
     domains = semantic_summary.domain_key.tolist()
     key_to_index = {domain: index for index, domain in enumerate(domains)}
-    index_to_key = {index: domain for index, domain in enumerate(domains)}
+    # I wrote this first: {index: domain for index, domain in enumerate(domains)}
+    # The linter said this was nicer, and I'm an addicted to high linter scores sooo:
+    index_to_key = dict(enumerate(domains))
     # Stacking centroids for all domains in a matrix
-    X = np.stack(semantic_summary.centroid)
+    embedding_matrix = np.stack(semantic_summary.centroid)
     # Calculating distance matrix for the semantic graph
-    affinity = 1 - pairwise_distances(X, metric="cosine")
+    affinity = 1 - pairwise_distances(embedding_matrix, metric="cosine")
     # Creating Graph object
     return Graph(affinity, key_to_index, index_to_key)
 

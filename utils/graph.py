@@ -32,7 +32,7 @@ def create_mappings(edges: pd.DataFrame) -> Tuple[Dict[str, int], Dict[int, str]
     """
     domains = pd.concat((edges.source, edges.target), ignore_index=True).unique()
     key_to_index = {domain: index for index, domain in enumerate(domains)}
-    index_to_key = {index: domain for index, domain in enumerate(domains)}
+    index_to_key = dict(enumerate(domains))
     return key_to_index, index_to_key  # type: ignore
 
 
@@ -225,7 +225,7 @@ class Graph:
         return self.affinity[row, column]  # type: ignore
 
     @property
-    def _n_connections(self) -> np.ndarray:
+    def n_connections(self) -> np.ndarray:
         """
         Calculates the number of connections/sum of weights of each node.
 
@@ -236,20 +236,14 @@ class Graph:
         return np.array(self.affinity.sum(axis=1)).flatten()
 
     @property
-    def n_connections(self) -> Dict[str, int]:
+    def node_names(self) -> List[str]:
         """
-        Calculates the number of connections/sum of weights of each node.
+        Returns the names of all nodes.
 
         Returns
-        ----------
-        connections: dict of str to int
-            A mapping of each node to its number of connections/sum of weights.
+        -------
+        list of str
         """
-        connections = self._n_connections
-        return {self.index_to_key[i]: n for i, n in enumerate(connections)}
-
-    @property
-    def node_names(self) -> List[str]:
         return pd.Series(self.index_to_key).sort_index().tolist()
 
     def display(

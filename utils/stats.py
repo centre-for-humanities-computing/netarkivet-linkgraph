@@ -1,5 +1,7 @@
-from typing import Union, List, TypeVar
+"""Module containing tools for statistical analysis"""
+
 import warnings
+from typing import List, TypeVar, Union
 
 import numpy as np
 import pandas as pd

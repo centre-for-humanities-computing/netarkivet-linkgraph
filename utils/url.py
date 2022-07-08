@@ -1,6 +1,6 @@
 """ Utility functions related to manipulation of urls """
+from typing import Optional
 from urllib.parse import urlparse
-from typing import List, Optional
 
 import pandas as pd
 

@@ -43,8 +43,8 @@ def dfs_to_linkgraph(
     # Since this can be an embarassingly parallel problem
     # it might make sense to parallelize or at least asynchronize it
     # if performance is not satisfactory
-    for df in df_stream:
-        current = lg.create_linkgraph(df)
+    for records in df_stream:
+        current = lg.create_linkgraph(records)
         linkgraph = lg.add(linkgraph, current)
         if save_path is not None:
             linkgraph.to_feather(save_path)

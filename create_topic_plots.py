@@ -4,12 +4,13 @@ based on precalculated link graphs and semantic summaries.
 """
 
 import os
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
+from preprocess_topics import EMNER_PATH, SAVE_PATH
 from utils.graph import Graph
-from preprocess_topics import SAVE_PATH, EMNER_PATH
 
 
 def linkgraph_plot(linkgraph: pd.DataFrame, domain_summary: pd.DataFrame) -> go.Figure:
@@ -57,7 +58,7 @@ def linkgraph_plot(linkgraph: pd.DataFrame, domain_summary: pd.DataFrame) -> go.
     )
     # Setting node color based on how many connections each
     # domain has in total
-    node_color = _linkgraph._n_connections
+    node_color = _linkgraph.n_connections
     return semantic_graph.display(
         edge_weight=3,
         node_size=node_size,

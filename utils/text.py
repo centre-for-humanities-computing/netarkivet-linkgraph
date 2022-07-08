@@ -1,4 +1,6 @@
-""" Utility functions related to text manipulation such as normalization, tokenization sentencization """
+"""
+Utilities for text manipulation such as normalization, tokenization sentencization
+"""
 import re
 import string
 from typing import List
