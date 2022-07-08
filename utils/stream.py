@@ -11,6 +11,7 @@ from itertools import islice
 from typing import Callable, Iterable, List, Optional, Tuple, TypeVar
 
 import pandas as pd
+from tqdm import tqdm
 
 
 def stream_edges(
@@ -199,7 +200,7 @@ def stream_records_from_file(file_path: str) -> Iterable[dict]:
 
 
 @reusable
-def stream_year(data_path: str, year: str) -> Iterable[dict]:
+def stream_year(data_path: str, year: str, verbose: bool = False) -> Iterable[dict]:
     """
     Streams all records from a given year.
 
@@ -209,6 +210,9 @@ def stream_year(data_path: str, year: str) -> Iterable[dict]:
         Path to the dataset
     year: str
         The year from which records should be streamed.
+    verbose: bool, defualt False
+        If set to true, a progress bar is displayed
+
     Yields
     ----------
     record: dict
@@ -216,6 +220,8 @@ def stream_year(data_path: str, year: str) -> Iterable[dict]:
     """
     for root, _, files in os.walk(os.path.join(data_path, f"{year}")):
         # Go through all files in the year directory
+        if verbose:
+            files = tqdm(files, desc=f"Processing year: {year}")
         for file in files:
             # If it's a jsonl file, stream all records from it
             if file.endswith(".jsonl"):
