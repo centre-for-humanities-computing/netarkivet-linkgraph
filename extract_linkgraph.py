@@ -103,9 +103,9 @@ def main() -> None:
     print("Starting linkgraph construction")
     for year in range(2006, 2016 + 1):
         print(f"Processing year: {year}")
-        record_dfs = st.stream_year_parquet(DATA_PATH, str(year))
-        dfs_to_linkgraph(
-            record_dfs,
+        records: Iterable[dict] = st.stream_year(DATA_PATH, str(year))
+        records_to_linkgraph(
+            records,
             save_path=f"/work/linkgraph_cleaned/{year}/extracted_edges.feather",
         )
     print("👌DONE👌")
