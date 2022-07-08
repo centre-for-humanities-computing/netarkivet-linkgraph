@@ -90,7 +90,7 @@ def records_to_linkgraph(
     return dfs_to_linkgraph(record_dfs, save_path)
 
 
-DATA_PATH = "/work/netarchive/"
+DATA_PATH = "/work/netarkivet-cleaned/"
 
 
 def main() -> None:
