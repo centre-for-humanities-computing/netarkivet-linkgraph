@@ -88,6 +88,8 @@ def expand(links: pd.DataFrame) -> pd.DataFrame:
         # Consider writing a vectorized version of normalize_url
         connections=1,
     )
+    # Normalizing links columnn
+    links = links.assign(links=normalize_domains(links.links))
     links = links.rename(columns={"domain_key": "source", "links": "target"})
     return links.dropna()
 
