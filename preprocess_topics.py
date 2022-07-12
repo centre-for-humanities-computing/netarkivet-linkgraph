@@ -98,7 +98,7 @@ def create_semantic_summary(records: pd.DataFrame) -> pd.DataFrame:
         .merge(summary, on="domain_key", how="right")
     )
     # Dropping embedding column
-    return summary.drop(columns=["embeddings"])
+    return summary.drop(columns=["embedding"])
 
 
 def create_semantic_graph(semantic_summary: pd.DataFrame) -> Graph:
@@ -248,8 +248,7 @@ def preprocess_theme(year: str, keyword: str) -> None:
     linkgraph.to_feather(linkgraph_path)
 
     print("  👌DONE👌")
-
-
+    
 EMNER_PATH = "/work/linkgraph_cleaned/emner.csv"
 
 

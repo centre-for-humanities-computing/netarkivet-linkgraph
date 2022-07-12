@@ -277,5 +277,5 @@ def filter_contains(records: Iterable[dict], keyword: str) -> Iterable[dict]:
         Records containing keyword
     """
     for record in records:
-        if keyword in record["text"].lower():
+        if keyword.lower() in record["text"].lower():
             yield record

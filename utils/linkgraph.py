@@ -124,12 +124,12 @@ def collapse(connections: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def add(linkgraph_a: pd.DataFrame, linkgraph_b: pd.DataFrame) -> pd.DataFrame:
+def add(*linkgraphs: pd.DataFrame) -> pd.DataFrame:
     """
-    Adds two linkgraphs together, allowing you to add up results
+    Adds multiple linkgraphs together, allowing you to add up results
     of chunks.
     """
-    linkgraph = pd.concat([linkgraph_a, linkgraph_b], ignore_index=True)
+    linkgraph = pd.concat(linkgraphs, ignore_index=True)
     return collapse(linkgraph)
 
 
